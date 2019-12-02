@@ -164,14 +164,14 @@ defmodule P1 do
   def run(codes, i \\ 0) when is_tuple(codes) do
     case elem(codes, i) do
       99 -> codes
-      1 -> run(put_at(codes, i + 3, value_at(codes, i + 2) + value_at(codes, i + 1)), i + 4)
-      2 -> run(put_at(codes, i + 3, value_at(codes, i + 2) * value_at(codes, i + 1)), i + 4)
+      1 -> run(put(codes, i + 3, get(codes, i + 2) + get(codes, i + 1)), i + 4)
+      2 -> run(put(codes, i + 3, get(codes, i + 2) * get(codes, i + 1)), i + 4)
     end
   end
 
-  defp put_at(tuple, i, value), do: put_elem(tuple, elem(tuple, i), value)
+  defp put(tuple, i, value), do: put_elem(tuple, elem(tuple, i), value)
 
-  defp value_at(tuple, i), do: elem(tuple, elem(tuple, i))
+  defp get(tuple, i), do: elem(tuple, elem(tuple, i))
 end
 
 defmodule P2 do
@@ -184,10 +184,22 @@ defmodule P2 do
   end
 
   def find(target, codes) do
-    for noun <- 0..99, verb <- 0..99 do
-      if result_for(noun, verb, codes) == target, do: (100 * noun) + verb
-    end
-    |> Enum.find(&!!&1)
+    Stream.flat_map(
+      0..99,
+      fn noun ->
+        Stream.flat_map(
+          0..99,
+          fn verb ->
+            if result_for(noun, verb, codes) == target do
+              [(100 * noun) + verb]
+            else
+              []
+            end
+          end
+        )
+      end
+    )
+    |> Enum.at(0)
   end
 end
 
