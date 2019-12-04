@@ -10,50 +10,50 @@ defmodule Pt do
   def manhattan_distance(pt1, pt2), do: abs(pt1.x - pt2.x) + abs(pt1.y - pt2.y)
 end
 
-defmodule Node do
+defmodule Bend do
   defstruct [:pt, :steps]
 
   def new(x, y, steps), do: new(Pt.new(x, y), steps)
-  def new(%Pt{} = pt, steps), do: %Node{pt: pt, steps: steps}
+  def new(%Pt{} = pt, steps), do: %Bend{pt: pt, steps: steps}
 
-  def new(node, "L" <> n) do
+  def new(bend, "L" <> n) do
     n = String.to_integer(n)
-    new(Pt.move(node.pt, -n, 0), node.steps + n)
+    new(Pt.move(bend.pt, -n, 0), bend.steps + n)
   end
 
-  def new(node, "R" <> n) do
+  def new(bend, "R" <> n) do
     n = String.to_integer(n)
-    new(Pt.move(node.pt, n, 0), node.steps + n)
+    new(Pt.move(bend.pt, n, 0), bend.steps + n)
   end
 
-  def new(node, "U" <> n) do
+  def new(bend, "U" <> n) do
     n = String.to_integer(n)
-    new(Pt.move(node.pt, 0, n), node.steps + n)
+    new(Pt.move(bend.pt, 0, n), bend.steps + n)
   end
 
-  def new(node, "D" <> n) do
+  def new(bend, "D" <> n) do
     n = String.to_integer(n)
-    new(Pt.move(node.pt, 0, -n), node.steps + n)
+    new(Pt.move(bend.pt, 0, -n), bend.steps + n)
   end
 end
 
-defmodule Wire do # A Wire is a list of Nodes
+defmodule Wire do # A Wire is a list of Bends
   def new(ops, origin) do
     ops
     |> String.split(",")
     |> Enum.map(&String.trim/1)
     |> Enum.reduce(
-         [Node.new(origin, 0)],
-         fn (op, [node | _] = wire) -> [Node.new(node, op) | wire] end
+         [Bend.new(origin, 0)],
+         fn (op, [bend | _] = wire) -> [Bend.new(bend, op) | wire] end
        )
   end
 
-  def intersections(pts1, pts2) do
+  def intersections(wire1, wire2) do
     Enum.flat_map(
-      Enum.chunk_every(pts1, 2, 1, :discard),
+      Enum.chunk_every(wire1, 2, 1, :discard),
       fn seg1 ->
         Enum.flat_map(
-          Enum.chunk_every(pts2, 2, 1, :discard),
+          Enum.chunk_every(wire2, 2, 1, :discard),
           fn seg2 -> Seg.intersection(seg1, seg2) end
         )
       end
@@ -61,7 +61,7 @@ defmodule Wire do # A Wire is a list of Nodes
   end
 end
 
-defmodule Seg do # A Seg is list containing two Node elements
+defmodule Seg do # A Seg is list containing two Bend elements
   def vertical?([a, b]), do: a.pt.x == b.pt.x
 
   def horizontal?([a, b]), do: a.pt.y == b.pt.y
@@ -78,7 +78,7 @@ defmodule Seg do # A Seg is list containing two Node elements
       y = if Enum.member?(v0.pt.y..v1.pt.y, h0.pt.y), do: h0.pt.y, else: nil
       if x && y do
         steps = h0.steps + abs(x - h0.pt.x) + v0.steps + abs(y - v0.pt.y)
-        [Node.new(x, y, steps)]
+        [Bend.new(x, y, steps)]
       else
         []
       end
