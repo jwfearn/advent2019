@@ -1,3 +1,5 @@
+# https://adventofcode.com/2019/day/1
+
 defmodule P1 do
   def fuel(mass) do
     mass

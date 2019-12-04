@@ -1,3 +1,5 @@
+# https://adventofcode.com/2019/day/4
+
 defmodule P1 do
   def count(str, func \\ &ok?/1) do
     str
