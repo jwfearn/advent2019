@@ -3,21 +3,47 @@ defmodule Pt do
 
   def new(x, y), do: %Pt{x: x, y: y}
 
-  def move(pt, "L" <> n), do: move(pt, -String.to_integer(n), 0)
-  def move(pt, "R" <> n), do: move(pt, String.to_integer(n), 0)
-  def move(pt, "U" <> n), do: move(pt, 0, String.to_integer(n))
-  def move(pt, "D" <> n), do: move(pt, 0, -String.to_integer(n))
   def move(pt, x, y), do: new(pt.x + x, pt.y + y)
 
   def manhattan_distance(pt1, pt2), do: abs(pt1.x - pt2.x) + abs(pt1.y - pt2.y)
 end
 
-defmodule Pts do
-  def new(ops, pt) do
+defmodule Node do
+  defstruct [:pt, :steps]
+
+  def new(x, y, steps), do: new(Pt.new(x, y), steps)
+  def new(%Pt{} = pt, steps), do: %Node{pt: pt, steps: steps}
+
+  def new(node, "L" <> n) do
+    n = String.to_integer(n)
+    new(Pt.move(node.pt, -n, 0), node.steps + n)
+  end
+
+  def new(node, "R" <> n) do
+    n = String.to_integer(n)
+    new(Pt.move(node.pt, n, 0), node.steps + n)
+  end
+
+  def new(node, "U" <> n) do
+    n = String.to_integer(n)
+    new(Pt.move(node.pt, 0, n), node.steps + n)
+  end
+
+  def new(node, "D" <> n) do
+    n = String.to_integer(n)
+    new(Pt.move(node.pt, 0, -n), node.steps + n)
+  end
+end
+
+defmodule Wire do # A Wire is a list of Nodes
+  def new(ops, origin) do
     ops
     |> String.split(",")
     |> Enum.map(&String.trim/1)
-    |> Enum.reduce([pt], fn (op, [pt0 | _] = pts) -> [Pt.move(pt0, op) | pts] end)
+    |> Enum.reduce(
+         [Node.new(origin, 0)],
+         fn (op, [node | _] = wire) -> [Node.new(node, op) | wire] end
+       )
   end
 
   def intersections(pts1, pts2) do
@@ -33,10 +59,10 @@ defmodule Pts do
   end
 end
 
-defmodule Seg do # A Seg is list containing two Pt elements
-  def vertical?([%Pt{x: xa}, %Pt{x: xb}]), do: xa == xb
+defmodule Seg do # A Seg is list containing two Node elements
+  def vertical?([a, b]), do: a.pt.x == b.pt.x
 
-  def horizontal?([%Pt{y: ya}, %Pt{y: yb}]), do: ya == yb
+  def horizontal?([a, b]), do: a.pt.y == b.pt.y
 
   def parallel?(a, b), do: (vertical?(a) && vertical?(b)) || (horizontal?(a) && horizontal?(b))
 
@@ -45,10 +71,15 @@ defmodule Seg do # A Seg is list containing two Pt elements
     if parallel?(a, b) do
       []
     else
-      [[v0, v1], [h0, h1]] = if vertical?(a), do: [a, b], else: [b, a]
-      x = if Enum.member?(h0.x..h1.x, v0.x), do: v0.x, else: nil
-      y = if Enum.member?(v0.y..v1.y, h0.y), do: h0.y, else: nil
-      if x && y, do: [Pt.new(x, y)], else: []
+      [[v1, v0], [h1, h0]] = if vertical?(a), do: [a, b], else: [b, a]
+      x = if Enum.member?(h0.pt.x..h1.pt.x, v0.pt.x), do: v0.pt.x, else: nil
+      y = if Enum.member?(v0.pt.y..v1.pt.y, h0.pt.y), do: h0.pt.y, else: nil
+      if x && y do
+        steps = h0.steps + abs(x - h0.pt.x) + v0.steps + abs(y - v0.pt.y)
+        [Node.new(x, y, steps)]
+      else
+        []
+      end
     end
   end
 end
@@ -62,15 +93,23 @@ defmodule P1 do
   end
 
   def distance(lines, origin \\ %Pt{}) when is_binary(lines) do
-    [a, b] = String.split(lines, "\n", trim: true)
-    distance(a, b, origin)
+    intersections(lines, origin)
+    |> Enum.map(&Pt.manhattan_distance(&1.pt, origin))
+    |> Enum.min
   end
 
-  def distance(a, b, origin) when is_binary(a) and is_binary(b) do
-    Pts.new(a, origin)
-    |> Pts.intersections(Pts.new(b, origin))
-    |> Enum.map(&Pt.manhattan_distance(&1, origin))
-    |> Enum.reject(&Kernel.==(0, &1))
+  def intersections(lines, origin) when is_binary(lines) do
+    [a, b] = String.split(lines, "\n", trim: true)
+    Wire.new(a, origin)
+    |> Wire.intersections(Wire.new(b, origin))
+    |> Enum.reject(&Kernel.==(origin, &1.pt))
+  end
+end
+
+defmodule P2 do
+  def steps(lines, origin \\ %Pt{}) do
+    P1.intersections(lines, origin)
+    |> Enum.map(& &1.steps)
     |> Enum.min
   end
 end
@@ -83,6 +122,16 @@ defmodule P1Test do
   test "a" do
     actual =
       """
+      R8,U5,L5,D3
+      U7,R6,D4,L4
+      """
+      |> P1.distance
+    assert actual == 6
+  end
+
+  test "b" do
+    actual =
+      """
       R75,D30,R83,U83,L12,D49,R71,U7,L72
       U62,R66,U55,R34,D71,R55,D58,R83
       """
@@ -90,7 +139,7 @@ defmodule P1Test do
     assert actual == 159
   end
 
-  test "b" do
+  test "c" do
     actual =
       """
       R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51
@@ -100,10 +149,47 @@ defmodule P1Test do
     assert actual == 135
   end
 
-  test "c" do
-    assert 375 == P1.distance(P1.input)
+  test "d", do: assert P1.distance(P1.input) == 375
+end
+
+defmodule P2Test do
+  use ExUnit.Case
+
+  test "a" do
+    actual =
+      """
+      R8,U5,L5,D3
+      U7,R6,D4,L4
+      """
+      |> P2.steps
+    assert actual == 30
   end
+
+  test "b" do
+    actual =
+      """
+      R75,D30,R83,U83,L12,D49,R71,U7,L72
+      U62,R66,U55,R34,D71,R55,D58,R83
+      """
+      |> P2.steps
+    assert actual == 610
+  end
+
+  test "c" do
+    actual =
+      """
+      R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51
+      U98,R91,D20,R16,D67,R40,U7,R15,U6,R7
+      """
+      |> P2.steps
+    assert actual == 410
+  end
+
+  test "d", do: assert P2.steps(P1.input) == 14746
 end
 
 P1.distance(P1.input)
 |> IO.inspect(label: "Part 1 Answer")
+
+P2.steps(P1.input)
+|> IO.inspect(label: "Part 2 Answer")
