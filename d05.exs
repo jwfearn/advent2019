@@ -1,44 +1,79 @@
 # https://adventofcode.com/2019/day/5
 
 defmodule P1 do
-  def run(codes, i \\ 0) when is_tuple(codes) do
-    {op, modes} = parse(elem(codes, i))
+  @halt 99
+  @add 1
+  @mul 2
+  @gets 3
+  @puts 4
+  @jne 5
+  @je 6
+  @lt 7
+  @eq 8
+
+  def run(codes, ip \\ 0) when is_tuple(codes) do
+    {op, modes} = parse(elem(codes, ip))
     case op do
-      99 ->
+      @halt ->
         codes
-      1 ->
+      @add ->
+        a = get(codes, modes, 1, ip)
+        b = get(codes, modes, 2, ip)
         codes
-        |> put(modes, 3, i, get(codes, modes, 2, i) + get(codes, modes, 1, i))
-        |> run(i + 4)
-      2 ->
+        |> put(modes, 3, ip, a + b)
+        |> run(ip + 4)
+      @mul ->
+        a = get(codes, modes, 1, ip)
+        b = get(codes, modes, 2, ip)
         codes
-        |> put(modes, 3, i, get(codes, modes, 2, i) * get(codes, modes, 1, i))
-        |> run(i + 4)
-      3 ->
+        |> put(modes, 3, ip, a * b)
+        |> run(ip + 4)
+      @gets ->
         {n, _} = Integer.parse(IO.gets("input: "))
         codes
-        |> put(modes, 1, i, n)
-        |> run(i + 2)
-      4 ->
-        IO.puts("output: #{get(codes, modes, 1, i)}")
-        run(codes, i + 2)
+        |> put(modes, 1, ip, n)
+        |> run(ip + 2)
+      @puts ->
+        a = get(codes, modes, 1, ip)
+        IO.puts("#{a}")
+        run(codes, ip + 2)
+      @jne ->
+        a = get(codes, modes, 1, ip)
+        ip = if a != 0, do: get(codes, modes, 2, ip), else: ip + 3
+        run(codes, ip)
+      @je ->
+        a = get(codes, modes, 1, ip)
+        ip = if a == 0, do: get(codes, modes, 2, ip), else: ip + 3
+        run(codes, ip)
+      @lt ->
+        a = get(codes, modes, 1, ip)
+        b = get(codes, modes, 2, ip)
+        codes
+        |> put(modes, 3, ip, as_int(a < b))
+        |> run(ip + 4)
+      @eq ->
+        a = get(codes, modes, 1, ip)
+        b = get(codes, modes, 2, ip)
+        codes
+        |> put(modes, 3, ip, as_int(a == b))
+        |> run(ip + 4)
     end
   end
 
-  def parse(code) do
-    modes = Enum.reverse(Integer.digits(div(code, 100)))
-    {rem(code, 100), modes}
-  end
+  def as_int(false), do: 0
+  def as_int(true), do: 1
+
+  def parse(code), do: {rem(code, 100), Enum.reverse(Integer.digits(div(code, 100)))}
 
   def mode(modes, pos), do: Enum.at(modes, pos - 1) || 0
 
-  defp put(codes, modes, pos, i, value), do: put(codes, mode(modes, pos), i + pos, value)
-  defp put(tuple, 0, i, value), do: put_elem(tuple, elem(tuple, i), value)
-  defp put(tuple, 1, i, value), do: put_elem(tuple, i, value)
+  defp put(codes, modes, pos, ip, value), do: put(codes, mode(modes, pos), ip + pos, value)
+  defp put(tuple, 0, ip, value), do: put_elem(tuple, elem(tuple, ip), value)
+  defp put(tuple, 1, ip, value), do: put_elem(tuple, ip, value)
 
-  defp get(codes, modes, pos, i), do: get(codes, mode(modes, pos), i + pos)
-  defp get(tuple, 0, i), do: elem(tuple, elem(tuple, i))
-  defp get(tuple, 1, i), do: elem(tuple, i)
+  defp get(codes, modes, pos, ip), do: get(codes, mode(modes, pos), ip + pos)
+  defp get(tuple, 0, ip), do: elem(tuple, elem(tuple, ip))
+  defp get(tuple, 1, ip), do: elem(tuple, ip)
 end
 
 ExUnit.start()
@@ -52,7 +87,8 @@ defmodule P1Test do
     assert actual == expected
   end
 
-  # Part 1 answer: 9938601
+  # Part 1 input: 1, answer: 9938601
+  # Part 2 input: 5, answer: 4283952
 end
 
 P1.run(
