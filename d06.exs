@@ -1,6 +1,5 @@
 # https://adventofcode.com/2019/day/6
 
-
 defmodule El do
   defstruct [
     parent: nil,
@@ -22,11 +21,32 @@ defmodule Tree do
 
   def root(tree), do: tree[@root_name]
 
-  def count(tree) do
+  def orbits(tree) do
     tree
     |> Map.values
     |> Enum.reduce(0, &(&1.depth + &2))
   end
+
+  def transfers(tree, name1, name2) do
+    %{}
+    |> tally(path(tree, name1))
+    |> tally(path(tree, name2))
+    |> Enum.reduce(
+         0,
+         fn {_, tally}, sum ->
+           if tally == 1, do: sum + 1, else: sum
+         end
+       )
+    |> Kernel.-(2)
+  end
+
+  defp tally(tallies, names) do
+    Enum.reduce(names, tallies, &Map.put(&2, &1, Map.get(&2, &1, 0) + 1))
+  end
+
+  def path(tree, name, path \\ [])
+  def path(_, nil, path), do: path
+  def path(tree, name, path), do: path(tree, tree[name].parent, [name | path])
 
   def build(lines) do
     lines
@@ -54,7 +74,6 @@ defmodule Tree do
   end
 
   defp update_depth(tree, child_name, parent_depth) do
-    IO.inspect({child_name, parent_depth})
     child = %El{Map.fetch!(tree, child_name) | depth: parent_depth + 1}
     tree
     |> Map.put(child_name, child)
@@ -62,13 +81,23 @@ defmodule Tree do
   end
 end
 
-defmodule P1 do
-  def orbits(lines), do: Tree.count(Tree.build(lines))
+defmodule D6 do
+  def orbits(lines) do
+    lines
+    |> Tree.build
+    |> Tree.orbits
+  end
+
+  def transfers(lines, a, b) do
+    lines
+    |> Tree.build
+    |> Tree.transfers(a, b)
+  end
 end
 
 ExUnit.start()
 
-defmodule P1Test do
+defmodule D6Test do
   use ExUnit.Case
 
   test "a" do
@@ -86,11 +115,34 @@ defmodule P1Test do
       J)K
       K)L
       """
-      |> P1.orbits
+      |> D6.orbits
     assert actual == 42
   end
 
-  test "answer", do: assert P1.orbits(input()) == 268504
+  test "b" do
+    actual =
+      """
+      COM)B
+      B)C
+      C)D
+      D)E
+      E)F
+      B)G
+      G)H
+      D)I
+      E)J
+      J)K
+      K)L
+      K)YOU
+      I)SAN
+      """
+      |> D6.transfers("YOU", "SAN")
+    assert actual == 4
+  end
+
+  test "part 1", do: assert D6.orbits(input()) == 268504
+
+  test "part 2", do: assert D6.transfers(input(), "YOU", "SAN") == 409
 
   defp input do
     """
